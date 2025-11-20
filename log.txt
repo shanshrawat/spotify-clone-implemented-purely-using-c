@@ -1,0 +1,9 @@
+Create Album
+Add Song to Album
+Create Album
+Add Song to Album
+View Album
+List All Songs
+Create Album
+List All Albums
+Display Command Log

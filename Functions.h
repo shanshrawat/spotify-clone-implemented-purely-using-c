@@ -26,7 +26,8 @@ void PlayNext(void);
 void PlayPrevious(void);
 void RemoveSongFromPlaylist(void);
 void AddSongToPlaylist(void);
-void LogCommand(char *command);
+void LogCommand(const char *command);
 void DisplayLog(void);
+void FreeAllMemory(void);
 
 #endif

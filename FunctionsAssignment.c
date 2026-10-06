@@ -27,7 +27,7 @@ void LoadSongsFromFile() {
         int min, sec;
         char rest[250];
 
-        if(sscanf(line, "%d %d:%d %[^\n]", &newSong->id, &min, &sec, rest) == 4) {
+        if(sscanf(line, "%d %d:%d %[^\r\n]", &newSong->id, &min, &sec, rest) == 4) {
 
             newSong->duration = min + (sec / 60.0f);
 
@@ -39,7 +39,7 @@ void LoadSongsFromFile() {
                 newSong->title[titleLen] = '\0';
 
                 int i = titleLen - 1;
-                while(i >= 0 && newSong->title[i] == ' ') {
+                while(i >= 0 && (newSong->title[i] == ' ' || newSong->title[i] == '\t')) {
                     newSong->title[i] = '\0';
                     i--;
                 }
@@ -48,20 +48,24 @@ void LoadSongsFromFile() {
                 newSong->artist[sizeof(newSong->artist)-1] = '\0';
 
                 i = 0;
-                while(newSong->artist[i] == ' ') i++;
+                while(newSong->artist[i] == ' ' || newSong->artist[i] == '\t') i++;
                 if(i > 0) {
                     memmove(newSong->artist, newSong->artist + i, strlen(newSong->artist) - i + 1);
                 }
 
                 i = strlen(newSong->artist) - 1;
-                while(i >= 0 && (newSong->artist[i] == ' ' || newSong->artist[i] == '\n')) {
+                while(i >= 0 && (newSong->artist[i] == ' ' || newSong->artist[i] == '\n' || newSong->artist[i] == '\r' || newSong->artist[i] == '\t')) {
                     newSong->artist[i] = '\0';
                     i--;
                 }
             } else {
-                
                 strncpy(newSong->title, rest, sizeof(newSong->title)-1);
                 newSong->title[sizeof(newSong->title)-1] = '\0';
+                int i = strlen(newSong->title) - 1;
+                while(i >= 0 && (newSong->title[i] == ' ' || newSong->title[i] == '\n' || newSong->title[i] == '\r' || newSong->title[i] == '\t')) {
+                    newSong->title[i] = '\0';
+                    i--;
+                }
                 newSong->artist[0] = '\0';
             }
 
@@ -105,11 +109,13 @@ void ListAllSongs() {
     int count = 1;
 
     while(cur != NULL) {
-        printf("%d. ID: %d | %s | %s | %.2f min\n",
-            count, cur->Song->id, cur->Song->title,
-            cur->Song->artist, cur->Song->duration);
+        if(cur->Song) {
+            printf("%d. ID: %d | %s | %s | %.2f min\n",
+                count, cur->Song->id, cur->Song->title,
+                cur->Song->artist, cur->Song->duration);
+            count++;
+        }
         cur = cur->nextSong;
-        count++;
     }
 }
 
@@ -124,18 +130,22 @@ void ListAllAlbums() {
     int count = 1;
 
     while(cur != NULL) {
-        printf("%d. ID: %d | %s\n", count, cur->Album->id, cur->Album->title);
+        if(cur->Album) {
+            printf("%d. ID: %d | %s\n", count, cur->Album->id, cur->Album->title);
+            count++;
+        }
         cur = cur->nextAlbum;
-        count++;
     }
 }
 
 void ViewAlbum() {
+    printf("Enter Album ID: ");
     int albumId = ValidId();
+    if(albumId <= 0) return;
 
     AlbumNodes *albumNode = FindAlbumById(AlbumHead, albumId);
 
-    if(albumNode == NULL) {
+    if(albumNode == NULL || albumNode->Album == NULL) {
         printf("Album with ID %d not found!\n", albumId);
         return;
     }
@@ -151,31 +161,35 @@ void ViewAlbum() {
     int count = 1;
 
     while(cur != NULL) {
-        printf("%d. ID: %d | %s | %s | %.2f min\n",
-            count, cur->Song->id, cur->Song->title,
-            cur->Song->artist, cur->Song->duration);
+        if(cur->Song) {
+            printf("%d. ID: %d | %s | %s | %.2f min\n",
+                count, cur->Song->id, cur->Song->title,
+                cur->Song->artist, cur->Song->duration);
+            count++;
+        }
         cur = cur->nextSong;
-        count++;
     }
 }
 
 void AddSongToAlbum() {
     printf("Enter Album ID: ");
     int albumId = ValidId();
+    if(albumId <= 0) return;
 
     AlbumNodes *albumNode = FindAlbumById(AlbumHead, albumId);
 
-    if(albumNode == NULL) {
+    if(albumNode == NULL || albumNode->Album == NULL) {
         printf("Album not found!\n");
         return;
     }
 
     printf("Enter Song ID: ");
     int songId = ValidId();
+    if(songId <= 0) return;
 
     SongNodes *songNode = FindSongId(SongLibraryHead, songId);
 
-    if(songNode == NULL) {
+    if(songNode == NULL || songNode->Song == NULL) {
         printf("Song not found in library!\n");
         return;
     }
@@ -213,22 +227,24 @@ void AddSongToAlbum() {
 void DeleteSongFromAlbum() {
     printf("Enter Album ID: ");
     int albumId = ValidId();
+    if(albumId <= 0) return;
 
     AlbumNodes *albumNode = FindAlbumById(AlbumHead, albumId);
 
-    if(albumNode == NULL) {
+    if(albumNode == NULL || albumNode->Album == NULL) {
         printf("Album not found!\n");
         return;
     }
 
     printf("Enter Song ID to delete: ");
     int songId = ValidId();
+    if(songId <= 0) return;
 
     SongNodes *cur = albumNode->Album->SongHead;
     SongNodes *prev = NULL;
 
     while(cur != NULL) {
-        if(cur->Song->id == songId) {
+        if(cur->Song && cur->Song->id == songId) {
             if(prev == NULL) {
                 albumNode->Album->SongHead = cur->nextSong;
             }
@@ -250,10 +266,11 @@ void DeleteSongFromAlbum() {
 void AddAlbumToPlaylist() {
     printf("Enter Album ID to add to playlist: ");
     int albumId = ValidId();
+    if(albumId <= 0) return;
 
     AlbumNodes *albumNode = FindAlbumById(AlbumHead, albumId);
 
-    if(albumNode == NULL) {
+    if(albumNode == NULL || albumNode->Album == NULL) {
         printf("Album not found!\n");
         return;
     }
@@ -266,25 +283,26 @@ void AddAlbumToPlaylist() {
     SongNodes *cur = albumNode->Album->SongHead;
 
     while(cur != NULL) {
-        SongNodes *newNode = malloc(sizeof(SongNodes));
-        if (!newNode) {
-            printf("Memory allocation failed\n");
-            return;
-        }
-        newNode->Song = cur->Song;
-        newNode->nextSong = NULL;
-
-        if(PlaylistHead == NULL) {
-            PlaylistHead = newNode;
-        }
-        else {
-            SongNodes *temp = PlaylistHead;
-            while(temp->nextSong != NULL) {
-                temp = temp->nextSong;
+        if(cur->Song) {
+            SongNodes *newNode = malloc(sizeof(SongNodes));
+            if (!newNode) {
+                printf("Memory allocation failed\n");
+                return;
             }
-            temp->nextSong = newNode;
-        }
+            newNode->Song = cur->Song;
+            newNode->nextSong = NULL;
 
+            if(PlaylistHead == NULL) {
+                PlaylistHead = newNode;
+            }
+            else {
+                SongNodes *temp = PlaylistHead;
+                while(temp->nextSong != NULL) {
+                    temp = temp->nextSong;
+                }
+                temp->nextSong = newNode;
+            }
+        }
         cur = cur->nextSong;
     }
 
@@ -301,7 +319,11 @@ void PlayNext() {
         CurrentSong = PlaylistHead;
     }
     else {
-        if(CurrentSong->nextSong == NULL) {
+        SongNodes *check = PlaylistHead;
+        while(check != NULL && check != CurrentSong) {
+            check = check->nextSong;
+        }
+        if(check == NULL || CurrentSong->nextSong == NULL) {
             CurrentSong = PlaylistHead;
         }
         else {
@@ -309,10 +331,12 @@ void PlayNext() {
         }
     }
 
-    printf("\nNow Playing: %s by %s (%.2f min)\n",
-        CurrentSong->Song->title,
-        CurrentSong->Song->artist,
-        CurrentSong->Song->duration);
+    if(CurrentSong && CurrentSong->Song) {
+        printf("\nNow Playing: %s by %s (%.2f min)\n",
+            CurrentSong->Song->title,
+            CurrentSong->Song->artist,
+            CurrentSong->Song->duration);
+    }
 }
 
 void PlayPrevious() {
@@ -329,7 +353,11 @@ void PlayPrevious() {
         CurrentSong = temp;
     }
     else {
-        if(CurrentSong == PlaylistHead) {
+        SongNodes *check = PlaylistHead;
+        while(check != NULL && check != CurrentSong) {
+            check = check->nextSong;
+        }
+        if(check == NULL || CurrentSong == PlaylistHead) {
             SongNodes *temp = PlaylistHead;
             while(temp->nextSong != NULL) {
                 temp = temp->nextSong;
@@ -338,17 +366,24 @@ void PlayPrevious() {
         }
         else {
             SongNodes *temp = PlaylistHead;
-            while(temp->nextSong != CurrentSong) {
+            while(temp != NULL && temp->nextSong != CurrentSong) {
                 temp = temp->nextSong;
             }
-            CurrentSong = temp;
+            if(temp != NULL) {
+                CurrentSong = temp;
+            }
+            else {
+                CurrentSong = PlaylistHead;
+            }
         }
     }
 
-    printf("\nNow Playing: %s by %s (%.2f min)\n",
-        CurrentSong->Song->title,
-        CurrentSong->Song->artist,
-        CurrentSong->Song->duration);
+    if(CurrentSong && CurrentSong->Song) {
+        printf("\nNow Playing: %s by %s (%.2f min)\n",
+            CurrentSong->Song->title,
+            CurrentSong->Song->artist,
+            CurrentSong->Song->duration);
+    }
 }
 
 void RemoveSongFromPlaylist() {
@@ -359,12 +394,13 @@ void RemoveSongFromPlaylist() {
 
     printf("Enter Song ID to remove from playlist: ");
     int songId = ValidId();
+    if(songId <= 0) return;
 
     SongNodes *cur = PlaylistHead;
     SongNodes *prev = NULL;
 
     while(cur != NULL) {
-        if(cur->Song->id == songId) {
+        if(cur->Song && cur->Song->id == songId) {
             if(prev == NULL) {
                 PlaylistHead = cur->nextSong;
             }
@@ -390,10 +426,11 @@ void RemoveSongFromPlaylist() {
 void AddSongToPlaylist() {
     printf("Enter Song ID to add to playlist: ");
     int songId = ValidId();
+    if(songId <= 0) return;
 
     SongNodes *songNode = FindSongId(SongLibraryHead, songId);
 
-    if(songNode == NULL) {
+    if(songNode == NULL || songNode->Song == NULL) {
         printf("Song not found in library!\n");
         return;
     }
@@ -420,7 +457,7 @@ void AddSongToPlaylist() {
     printf("Song added to playlist!\n");
 }
 
-void LogCommand(char *command) {
+void LogCommand(const char *command) {
     FILE *fp = fopen("log.txt", "a");
     if(!fp) {
         return;
@@ -442,8 +479,11 @@ void DisplayLog() {
     int count = 1;
 
     while(fgets(line, sizeof(line), fp)) {
-        printf("%d. %s", count, line);
-        count++;
+        line[strcspn(line, "\r\n")] = '\0';
+        if(line[0] != '\0') {
+            printf("%d. %s\n", count, line);
+            count++;
+        }
     }
 
     fclose(fp);
@@ -482,7 +522,7 @@ void LoadAlbumsFromFile() {
 
             strncpy(newAlbum->title, pipePos + 1, sizeof(newAlbum->title)-1);
             newAlbum->title[sizeof(newAlbum->title)-1] = '\0';
-            newAlbum->title[strcspn(newAlbum->title, "\n")] = '\0';
+            newAlbum->title[strcspn(newAlbum->title, "\r\n")] = '\0';
 
             newAlbum->SongHead = NULL;
 
@@ -510,10 +550,8 @@ void LoadAlbumsFromFile() {
         else if(line[0] == 'S' && currentAlbum != NULL) {
 
             int songId;
-            char title[100], artist[100];
-            float duration;
 
-            if(sscanf(line, "S,%d,%[^,],%[^,],%f", &songId, title, artist, &duration) == 4) {
+            if(sscanf(line, "S,%d", &songId) >= 1) {
 
                 SongNodes *songNode = FindSongId(SongLibraryHead, songId);
 
@@ -550,14 +588,13 @@ int ValidId()
 
     while (1)
     {
-        printf("Enter Id\n");
         if (!fgets(temp, sizeof(temp), stdin)) return -1;
 
-        if (sscanf(temp, " %d %c", &id, &garbage) == 1)
+        if (sscanf(temp, " %d %c", &id, &garbage) == 1 && id > 0)
         {
             return id;
         }
-        printf("Invalid Id! Try again!\n");
+        printf("Invalid Id! Try again: ");
     }
 }
 
@@ -585,27 +622,36 @@ AlbumNodes* FindAlbumById(AlbumNodes *head, int id) {
 
 Albums* CreateAlbum()
 {
+    printf("Enter Album ID: ");
+    int albumId = ValidId();
+    if (albumId <= 0) {
+        return NULL;
+    }
+
+    if (FindAlbumById(AlbumHead, albumId) != NULL) {
+        printf("Album with ID %d already exists!\n", albumId);
+        return NULL;
+    }
+
     Albums *newAlbum = malloc(sizeof(Albums));
     if (!newAlbum) {
         printf("Memory error!\n");
         return NULL;
     }
-
-    printf("Enter Album ID: ");
-    if (scanf("%d", &newAlbum->id) != 1) {
-        printf("Invalid input.\n");
-        getchar();
-        free(newAlbum);
-        return NULL;
-    }
-    getchar();
+    newAlbum->id = albumId;
 
     printf("Enter Album Title: ");
     if (!fgets(newAlbum->title, sizeof(newAlbum->title), stdin)) {
         free(newAlbum);
         return NULL;
     }
-    newAlbum->title[strcspn(newAlbum->title, "\n")] = '\0';
+    newAlbum->title[strcspn(newAlbum->title, "\r\n")] = '\0';
+
+    if (strlen(newAlbum->title) == 0) {
+        printf("Album title cannot be empty!\n");
+        free(newAlbum);
+        return NULL;
+    }
 
     newAlbum->SongHead = NULL;
 
@@ -645,22 +691,65 @@ void SaveAllAlbums()
 
     while (A != NULL) {
         Albums *alb = A->Album;
-        fprintf(fp, "%d|%s\n", alb->id, alb->title);
+        if (alb) {
+            fprintf(fp, "%d|%s\n", alb->id, alb->title);
 
-        SongNodes *S = alb->SongHead;
-        while (S != NULL) {
-            fprintf(fp, "S,%d,%s,%s,%.2f\n",
-                S->Song->id,
-                S->Song->title,
-                S->Song->artist,
-                S->Song->duration
-            );
-            S = S->nextSong;
+            SongNodes *S = alb->SongHead;
+            while (S != NULL) {
+                if (S->Song) {
+                    fprintf(fp, "S,%d,%s,%s,%.2f\n",
+                        S->Song->id,
+                        S->Song->title,
+                        S->Song->artist,
+                        S->Song->duration
+                    );
+                }
+                S = S->nextSong;
+            }
+
+            fprintf(fp, "END\n");
         }
-
-        fprintf(fp, "END\n");
         A = A->nextAlbum;
     }
 
     fclose(fp);
+}
+
+void FreeAllMemory() {
+    SongNodes *pCur = PlaylistHead;
+    while(pCur != NULL) {
+        SongNodes *next = pCur->nextSong;
+        free(pCur);
+        pCur = next;
+    }
+    PlaylistHead = NULL;
+    CurrentSong = NULL;
+
+    AlbumNodes *aCur = AlbumHead;
+    while(aCur != NULL) {
+        AlbumNodes *nextA = aCur->nextAlbum;
+        if(aCur->Album) {
+            SongNodes *sCur = aCur->Album->SongHead;
+            while(sCur != NULL) {
+                SongNodes *nextS = sCur->nextSong;
+                free(sCur);
+                sCur = nextS;
+            }
+            free(aCur->Album);
+        }
+        free(aCur);
+        aCur = nextA;
+    }
+    AlbumHead = NULL;
+
+    SongNodes *lCur = SongLibraryHead;
+    while(lCur != NULL) {
+        SongNodes *nextL = lCur->nextSong;
+        if(lCur->Song) {
+            free(lCur->Song);
+        }
+        free(lCur);
+        lCur = nextL;
+    }
+    SongLibraryHead = NULL;
 }

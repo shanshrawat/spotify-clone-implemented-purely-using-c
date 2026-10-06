@@ -91,6 +91,7 @@ int main() {
         }
     }
 
+    FreeAllMemory();
     return 0;
 }
 
